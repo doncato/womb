@@ -21,3 +21,10 @@ The program needs the following libraries to work:
 The schematics were created with https://www.circuit-diagram.org/ if you have improvements, you can import
 the existing from this repo, edit it and make a pull request if you like.
 <img src="https://raw.githubusercontent.com/doncato/womb/main/circuit.png">
+### Wiring Description
+- The four Integrated Circuits on the far left are the various temperature sensors, you can use more or less than currently displayed.
+- The single Integrated Circuit on the bottom left is the I²C compatible LCD display
+- The switches in the bottom center are simple switches to adjust the behaviour of the machine
+- The single Integrated Circuit on the right side is an analog humidity Sensor
+- The two relais on the upper right corner are to control the heater and the motor. (The System is designed with 4 relais while only 2 are actually used, you can expand the code to use all four or even more.)
+- The Arduino Uno sits in the middle on the wiring diagram
