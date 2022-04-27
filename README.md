@@ -3,12 +3,12 @@ The whole system is designated to breed chicken eggs. The brain of the operation
 
 ## Parts
 + Heating Element (any)
-+ Motor (To turn the eggs) (any)
-+ Multiple Temperature Sensors (Adafruit MCP9808)
-+ Humidity Sensor (Adafruit DHT11)
-+ Text Display (Grove - LCD RGB)
++ Motor (To turn the eggs) (any, can be a servo but the code is designed for a very slow motor)
++ Multiple Temperature Sensors (Adafruit MCP9808, can be others, but the code is designed for those)
++ Humidity Sensor (Adafruit DHT11, can be any, but the code is designed for this)
++ Text Display (Grove - LCD RGB, can be any LCD or different screen but the code is... you get the idea)
 + Relais (any, e.g. DEBO RELAIS 4ch)
-+ 4 Buttons (any, but they should have NO and NC)
++ 4 Buttons (any)
 
 ## Libraries
 The program needs the following libraries to work:
