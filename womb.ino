@@ -9,11 +9,21 @@ chicken eggs. This is the arduino script controlling the breeder
 All units are in °C!
 */
 
+// IMPORTS
+#include <math.h>
+// - Imports for Display
+#include <Wire.h>
+#include "rgb_lcd.h"
+// - Imports for temperature Sensor
+#include "Adafruit_MCP9808.h"
+// - Imports for Humidity Sensor
+#include "DHT.h"
+
 // SETTINGS
 // If you plan on running this on your own these are some settings you might want to change
 // - Misc
-const char[4] VERSION = "v1.0"; // Version Number; Should only be 4 characters (e.g. "v0.1")
-long motor_time = 1; // The time in minutes when the motor should be activated
+const char VERSION[4] = "v1.0"; // Version Number; Should only be 4 characters (e.g. "v0.1")
+long motor_time = 3; // The time in minutes when the motor should be activated
 int motor_turn_time = 12; // The time in seconds for the motor to be active CANNOT BE BIGGER THAN 32
 const int dim_after = 10; // Dim the display after n iterations
 const int iteration_delay = 250; // The time in milliseconds to wait between iterations of the main loop, change only if you know what you are doing
@@ -28,36 +38,27 @@ const float max_sens_range[2] = {15.0, 45.0}; // Min-Max temperature Range to be
 
 // - Pin Numbers for some devices
 const int button_null = 2; // WIP UNUSED; Pin for the Button with the NULL function
-const int button_up = 3; // Pin for the Button to raise the target temperature
-const int button_down = 4; // Pin for the Button to lower the target temperature
-const int button_mode = 5; // WIP UNUSED; Pin for the Button with the Mode function
+const int button_up = 4; // Pin for the Button to raise the target temperature
+const int button_down = 3; // Pin for the Button to lower the target temperature
+const int button_mode = 2; // WIP UNUSED; Pin for the Button with the Mode function
 
-const int relay_heat = 12; // Pin for the Relay controlling the heat
-const int relay_air = 11; // WIP UNUSED; Pin for the Relay controlling additional air vents and similar
-const int relay_motor = 10; // Pin for the Relay controlling the rotational motor (for turning the eggs)
-const int relay_4 = 9; // WIP UNUSED; Additional Pin
+const int relay_heat = 9; // Pin for the Relay controlling the heat
+const int relay_air = 10; // WIP UNUSED; Pin for the Relay controlling additional air vents and similar
+const int relay_motor = 11; // Pin for the Relay controlling the rotational motor (for turning the eggs)
+const int relay_4 = 12; // WIP UNUSED; Additional Pin
 
+Adafruit_MCP9808 tempsensor_1 = Adafruit_MCP9808();
+Adafruit_MCP9808 tempsensor_2 = Adafruit_MCP9808();
+const Adafruit_MCP9808 tempsensors[] = {tempsensor_1, tempsensor_2};
 const int temp_sensor_addrs[] = {0x18, 0x19}; // Array of the addresses for the Adafruit_MCP9808 Temp sensors
 
 // END OF SETTINGS
 
-// Imports
-#include <math.h>
-// - Imports for Display
-#include <Wire.h>
-#include "rgb_lcd.h"
-// - Imports for temperature Sensor
-#include "Adafruit_MCP9808.h"
-// - Imports for Humidity Sensor
-#include "DHT.h"
-
 // Define modules
 // - Define lcd display
 rgb_lcd lcd;
-// - temperature Sensor
-Adafruit_MCP9808 tempsensor = Adafruit_MCP9808();
 // - Set the pin for readout of the Humidity Sensor
-#define DHTPIN 7
+#define DHTPIN 6
 #define DHTTYPE DHT22   // DHT 22  (AM2302) (Model Number)
 DHT humisensor(DHTPIN, DHTTYPE);
 // - Set the buttons pins
@@ -67,6 +68,9 @@ const int relais[4] = {relay_heat, relay_air, relay_motor, relay_4};
 
 // Variables for the current state, temperature and stuff
 long last_time = 0;
+bool motor_on = false;
+bool motor_setup = false;
+long turn_motor_off = 0;
 bool shouldheat = false;
 float curr_humi = 0.0;
 float curr_temp = 0.0;
@@ -82,7 +86,7 @@ void setup() {
   lcd.begin(16, 2);
   lcd.setRGB(128,128,128);
   lcd.setCursor(0,0);
-  lcd.print("womb        " + VERSION);
+  lcd.print("womb        " + String(VERSION));
   lcd.setCursor(0,1);
   lcd.print("Setup");
   // Setup the relay pins for output
@@ -95,21 +99,20 @@ void setup() {
   }
   // Setup the sensors
   // Set temperature Sensors
-  /*
   for (int i=0; i<sizeof temp_sensor_addrs/sizeof temp_sensor_addrs[0]; i++) {
-    Adafruit_MCP9808 sensor = Adafruit_MCP9808();
+    //Adafruit_MCP9808 sensor = tempsensors[i];
     // Get the sensor with the specified address, if it wasn't found don't save it
-    if (sensor.begin(temp_sensor_addrs[i])) {
-      sensor.setResolution(3);
-      sensor.wake();
-      temp_sensors[i] = sensor;
-      Serial.println(sensor.readTempC());
+    if (tempsensors[i].begin(temp_sensor_addrs[i])) {
+      tempsensors[i].setResolution(3);
+      tempsensors[i].wake();
+      //Serial.println(sensor.readTempC());
     }
   }
-  */
-  tempsensor.begin(0x18);
+  /*
+  tempsensor.begin(0x19);
   tempsensor.setResolution(3);
   tempsensor.wake();
+  */
   // Set Humidity Sensor
   humisensor.begin();
 
@@ -137,18 +140,20 @@ void loop() {
   }
 
   // Execute appropriate function to the button press
+  if (button_values[3]) {
+    actioned = true;
+    motor_setup = true;
+    digitalWrite(relay_motor, HIGH);
+  }
+  else if (motor_setup){
+    motor_setup = false;
+    digitalWrite(relay_motor, LOW);
+  }
   if (button_values[0]) {
     actioned = true;
     buttonNull();
   }
-  if (button_values[3]) {
-    actioned = true;
-    digitalWrite(relay_motor, HIGH);
-  }
-  else {
-    digitalWrite(relay_motor, LOW);
-  }
-  if (button_values[1]) {
+  else if (button_values[1]) {
     actioned = true;
     target_temp += 0.1;
   }
@@ -202,11 +207,18 @@ void loop() {
     digitalWrite(relay_heat, LOW);
   }
 
-  // Check if it is time to turn the motor
+  // Check if it is time to turn the motor on
   if (turnMotor()) {
+    Serial.println("MOTORTIME! ON");
     digitalWrite(relay_motor, HIGH);
-    delay(motor_turn_time*1000);
+    motor_on = true;
+    turn_motor_off = millis() + (motor_turn_time*1000);
+  }
+  // Check if it is time to turn the motor off
+  if (motor_on && millis() >= turn_motor_off) {
+    Serial.println("MOTORTIME! OFF");
     digitalWrite(relay_motor, LOW);
+    motor_on = false;
   }
  
   // Do some stuff at the end 
@@ -234,17 +246,21 @@ float computeCurrTemp() {
   // TODO: Ignore sensor if value is unrealistic, but how to determine that?
   float sum = 0.0;
   //Serial.println(temp_sensors[0].readTempC());
-  /*
-  for (int i=0; i<sizeof temp_sensors/sizeof temp_sensors[0]; i++) {
-    float temp = temp_sensors[i].readTempC();
-    Serial.println(temp);
+  for (int i=0; i<sizeof tempsensors/sizeof tempsensors[0]; i++) {
+    Adafruit_MCP9808 sensor = tempsensors[i];
+    float temp = sensor.readTempC();
     if (!isnan(temp)) {
       sum += temp;
     }
   }
-  */
-  //return (sum / (sizeof temp_sensors/sizeof temp_sensors[0]));
-  return tempsensor.readTempC();
+  //Serial.println(sizeof tempsensors);
+  float result = (sum / (sizeof tempsensors/sizeof tempsensors[0]));
+  if (!isnan(result)) {
+    return result;
+  }
+  else {
+    return 0.0;
+  }
 }
 
 bool heaterShouldHeat() {
@@ -275,7 +291,7 @@ bool invalidTemp() {
     return true;
   }
   else if (curr_temp <= max_sens_range[0]) {
-    curr_temp = max_sens_range[1] + 1; // Set the temperature to something high so the heater gets disabled
+    //curr_temp = max_sens_range[1] + 1; // Set the temperature to something high so the heater gets disabled
     return true;
   }
   return false;
@@ -307,5 +323,5 @@ void printState() {
   lcd.setCursor(0,0);
   lcd.print("C: " + String(curr_temp, 2) + "   " + String(curr_humi, 1) + "%");
   lcd.setCursor(0,1);
-  lcd.print("T: " + String(target_temp, 2) + " " + indicator + " " + String(r));
+  lcd.print("T: " + String(target_temp, 2) + " " + indicator + "  " + String(r));
 }
