@@ -1,5 +1,6 @@
-# womb
-The whole system is designated to breed chicken eggs. The brain of the operations is an Arduino UNO or a compatible board. 
+# W.O.M.B.
+The *Willingly Overengineered Mechanical Breeder* is a 'highly' advanced system designed to breed chicken eggs.
+The brain of the operations is an Arduino UNO or a compatible board. 
 
 ## Parts
 + Heating Element (any)
