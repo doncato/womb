@@ -1,7 +1,7 @@
 // NOTES
 /*
 Author: doncato
-Repo: https://github.com/chicken-womb/
+Repo: https://github.com/womb/
 
 This Project was initiated by a Friend of mine, needing a breeder for
 chicken eggs. This is the arduino script controlling the breeder
