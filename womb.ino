@@ -22,7 +22,7 @@ All units are in °C!
 // SETTINGS
 // If you plan on running this on your own these are some settings you might want to change
 // - Misc
-const char VERSION[4] = "v1.0"; // Version Number; Should only be 4 characters (e.g. "v0.1")
+const char VERSION[4] = "v1.1"; // Version Number; Should only be 4 characters (e.g. "v0.1")
 long motor_time = 3; // The time in minutes when the motor should be activated
 int motor_turn_time = 12; // The time in seconds for the motor to be active CANNOT BE BIGGER THAN 32
 const int dim_after = 10; // Dim the display after n iterations
@@ -144,10 +144,12 @@ void loop() {
     actioned = true;
     motor_setup = true;
     digitalWrite(relay_motor, HIGH);
+    Serial.println("Turned Motor *ON* due to button press");
   }
   else if (motor_setup){
     motor_setup = false;
     digitalWrite(relay_motor, LOW);
+    Serial.println("Turned Motor *OFF* due to missing button press");
   }
   if (button_values[0]) {
     actioned = true;
@@ -156,10 +158,12 @@ void loop() {
   else if (button_values[1]) {
     actioned = true;
     target_temp += 0.1;
+    Serial.println("Raised Target Temperature");
   }
   else if (button_values[2]) {
     actioned = true;
     target_temp -= 0.1;
+    Serial.println("Lowered Target Temperature");
   }
 
   // Correct the target temperature if it is out of max_temp_range
@@ -167,6 +171,7 @@ void loop() {
 
   // Check if the measured temperature is outside max_sens_range
   if (invalidTemp()) {
+    Serial.println("Measured Temperature is outside of range");
     if (it_switch) {
       lcd.setRGB(255,0,0);
     }
@@ -176,6 +181,7 @@ void loop() {
   }
   // Check if the temperature is outside max_temp_range and blink the screen red if it is
   else if (alarmingTemp()) {
+    Serial.println("Measured Temperature is alarming");
     if (it_switch) {
       lcd.setRGB(255,0,0);
     }
@@ -202,9 +208,11 @@ void loop() {
   shouldheat = heaterShouldHeat();
   if (shouldheat) {
     digitalWrite(relay_heat, HIGH);
+    Serial.println("Turned Heater *ON*, T: " + String(curr_temp, 2));
   }
   else {
     digitalWrite(relay_heat, LOW);
+    Serial.println("Turned Heater *OFF*, T: " + String(curr_temp, 2));
   }
 
   // Check if it is time to turn the motor on
@@ -225,6 +233,7 @@ void loop() {
   it_switch = !it_switch;
   // Print the current data to display
   printState();
+  logState();
   delay(iteration_delay);
 }
 
@@ -236,9 +245,11 @@ void buttonNull() {
 void correctTargetTemp() {
   if (target_temp >= max_temp_range[1]) {
     target_temp = max_temp_range[1];
+    Serial.println("Corrected Target Temperature");
   }
   else if (target_temp <= max_temp_range[0]) {
     target_temp = max_temp_range[0];
+    Serial.println("Corrected Target Temperature");
   }
 }
 
@@ -324,4 +335,8 @@ void printState() {
   lcd.print("C: " + String(curr_temp, 2) + "   " + String(curr_humi, 1) + "%");
   lcd.setCursor(0,1);
   lcd.print("T: " + String(target_temp, 2) + " " + indicator + "  " + String(r));
+}
+
+void logState() {
+  Serial.println("Current T: " + String(curr_temp, 2) + "; Target T: " + String(target_temp, 2) + "; Heater: " + shouldheat + ";");
 }
